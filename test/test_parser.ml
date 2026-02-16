@@ -2,7 +2,7 @@ open Legible
 open Alcotest
 
 let test_parse_chunk_with_ref () =
-  let src = "@chunk{main}[lang=ocaml]\nlet x = 1\n@{helper}\n@end\n" in
+  let src = "@chunk{main}[lang=ocaml]\nlet x = 1\n  @{helper}\n@end\n" in
   match Parser.parse_string src with
   | Ast.ChunkDef def :: _ ->
       check string "chunk name" "main" def.name ;
