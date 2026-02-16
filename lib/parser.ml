@@ -121,7 +121,7 @@ let parse_prose st =
         false )
 
 let parse_annotation st =
-  ignore (adv st) ;
+  let head = adv st in
   expect_lbrace st ;
   let name = parse_identifier st "annotation name" in
   expect_rbrace st ;
@@ -133,10 +133,10 @@ let parse_annotation st =
       ()
   | _ ->
       throw st "expected newline after annotation header" ) ;
-  Annotation {name; args}
+  Annotation {name; args; loc= head.span.start_pos}
 
 let parse_chunk st is_root =
-  ignore (adv st) ;
+  let head = adv st in
   expect_lbrace st ;
   let name = parse_identifier st "chunk name" in
   expect_rbrace st ;
@@ -156,7 +156,7 @@ let parse_chunk st is_root =
       throw st ("missing @end for chunk {" ^ name ^ "}")
   | _ ->
       throw st "expected @end" ) ;
-  ChunkDef {name; is_root; options; body}
+  ChunkDef {name; is_root; options; body; loc= head.span.start_pos}
 
 let parse_document tks =
   let st = mk_state tks in
