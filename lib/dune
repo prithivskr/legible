@@ -1,2 +1,4 @@
 (library
- (name legible))
+ (name legible)
+ (public_name legible)
+ (modules lexer))

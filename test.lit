@@ -1,0 +1,203 @@
+@-- calculator.lit
+@-- A literate implementation of a stack-based RPN calculator in Python.
+
+# Lorem ipsum
+
+Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Vestibulum accumsan lacus ut tempor malesuada. Sed quis tincidunt nulla. Nulla eu sapien ut turpis vestibulum ultricies. Cras porttitor magna augue, id ullamcorper arcu vehicula sed. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Fusce fermentum consectetur enim in lacinia. Ut cursus consectetur mauris, id tempus ex rutrum faucibus. Nullam nulla est, tempus eget suscipit non, tincidunt eget nulla. Nam a lorem vel velit malesuada tristique luctus ac nunc. Etiam sagittis tristique risus, ut tincidunt lorem volutpat at. Pellentesque bibendum gravida enim ac lobortis. Suspendisse potenti. Phasellus ut porta ante. 
+
+---
+
+## Token Types
+
+We use a dataclass for tokens rather than plain strings so that `TNum` can carry its numeric payload. Python's `match` statement (3.10+) makes the evaluator clean to write against this representation.
+
+@annotation{once}
+@chunk{token-types}[lang=python]
+from dataclasses import dataclass
+from typing import Union
+
+@dataclass
+class TNum:
+    value: float
+
+@dataclass
+class TPlus: pass
+
+@dataclass
+class TMinus: pass
+
+@dataclass
+class TStar: pass
+
+@dataclass
+class TSlash: pass
+
+@dataclass
+class TEof: pass
+
+Token = Union[TNum, TPlus, TMinus, TStar, TSlash, TEof]
+@end
+
+---
+
+## Lexer
+
+The lexer converts an input string into a list of tokens. It handles multi-digit integers and decimals, skips whitespace, and raises on unrecognized characters.
+
+@annotation{lang-check}
+@chunk{lexer}[lang=python]
+def lex(source: str) -> list[Token]:
+    tokens: list[Token] = []
+    i = 0
+    while i < len(source):
+        c = source[i]
+        if c in ' \t\n':
+            i += 1
+        elif c == '+':
+            tokens.append(TPlus()); i += 1
+        elif c == '-':
+            tokens.append(TMinus()); i += 1
+        elif c == '*':
+            tokens.append(TStar()); i += 1
+        elif c == '/':
+            tokens.append(TSlash()); i += 1
+        elif c.isdigit() or c == '.':
+            start = i
+            while i < len(source) and (source[i].isdigit() or source[i] == '.'):
+                i += 1
+            tokens.append(TNum(float(source[start:i])))
+        else:
+            raise ValueError(f"unexpected character: {c!r}")
+    tokens.append(TEof())
+    return tokens
+@end
+
+---
+
+## Evaluator
+
+The evaluator walks the token list and maintains a Python list as a stack.
+Binary operators pop two values, compute a result, and push it back. At the end of the token stream the stack should contain exactly one value. Any other condition is a malformed expression.
+
+@annotation{lang-check}
+@chunk{evaluator}[lang=python]
+def eval_rpn(tokens: list[Token]) -> float:
+    stack: list[float] = []
+
+    def pop() -> float:
+        if not stack:
+            raise ValueError("stack underflow")
+        return stack.pop()
+
+    for tok in tokens:
+        match tok:
+            case TNum(v):
+                stack.append(v)
+            case TPlus():
+                b, a = pop(), pop()
+                stack.append(a + b)
+            case TMinus():
+                b, a = pop(), pop()
+                stack.append(a - b)
+            case TStar():
+                b, a = pop(), pop()
+                stack.append(a * b)
+            case TSlash():
+                b, a = pop(), pop()
+                if b == 0.0:
+                    raise ValueError("division by zero")
+                stack.append(a / b)
+            case TEof():
+                break
+
+    if len(stack) == 0:
+        raise ValueError("empty expression")
+    if len(stack) > 1:
+        raise ValueError("too many values on stack")
+    return stack[0]
+@end
+
+---
+
+## Tests
+
+A small set of sanity checks using `assert`. The `tests` chunk is defined twice
+— the first definition opens the function, the second adds more cases. Both
+definitions are concatenated in document order by the tangle pass.
+
+@chunk{tests}[lang=python]
+def run_tests() -> None:
+    def check(expr: str, expected: float) -> None:
+        result = eval_rpn(lex(expr))
+        assert abs(result - expected) < 1e-9, \
+            f"FAIL: {expr!r} = {result}, expected {expected}"
+
+    check("3 4 +",           7.0)
+    check("10 2 /",          5.0)
+    check("2 3 4 * +",       14.0)
+@end
+
+@chunk{tests}[lang=python]
+    check("5 1 2 + 4 * + 3 -", 14.0)
+    check("0.5 2 *",          1.0)
+    print("all tests passed")
+@end
+
+The last test, `5 1 2 + 4 * + 3 -`, evaluates `(5 + ((1 + 2) * 4)) - 3 = 14`.
+It exercises multi-operand stack depth and confirms operator ordering is correct.
+
+---
+
+## Entry Point
+
+Reads a single expression from stdin, evaluates it, and prints the result.
+Errors are caught and printed to stderr with a clean message.
+
+@annotation{once}
+@chunk{main}[lang=python]
+def main() -> None:
+    import sys
+    line = input("rpn> ")
+    try:
+        result = eval_rpn(lex(line))
+        print(result)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        sys.exit(1)
+@end
+
+---
+
+## Output File
+
+This root chunk assembles everything into `calc.py` and declares the build
+commands. Because Python needs no compilation step, `build` just runs the
+tests and `run` starts the interactive prompt.
+
+@root{calc.py}[lang=python, build=python3 calc.py --test, run=python3 calc.py]
+@{token-types}
+
+
+# --- Lexer ---
+@{lexer}
+
+
+# --- Evaluator ---
+@{evaluator}
+
+
+# --- Tests ---
+@{tests}
+
+
+# --- Entry point ---
+@{main}
+
+
+if __name__ == "__main__":
+    import sys
+    if "--test" in sys.argv:
+        run_tests()
+    else:
+        main()
+@end
