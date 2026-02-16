@@ -1,0 +1,6 @@
+# dune init proj legible
+# OCAMLPARAM: unset
+# Shared cache: enabled-except-user-rules
+# Shared cache location: /Users/saline/.cache/dune/db
+# Workspace root: /Users/saline/development/projects/legible
+# Auto-detected concurrency: 10
