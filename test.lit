@@ -89,26 +89,32 @@ def eval_rpn(tokens: list[Token]) -> float:
             raise ValueError("stack underflow")
         return stack.pop()
 
+    
     for tok in tokens:
-        match tok:
-            case TNum(v):
-                stack.append(v)
-            case TPlus():
-                b, a = pop(), pop()
-                stack.append(a + b)
-            case TMinus():
-                b, a = pop(), pop()
-                stack.append(a - b)
-            case TStar():
-                b, a = pop(), pop()
-                stack.append(a * b)
-            case TSlash():
-                b, a = pop(), pop()
-                if b == 0.0:
-                    raise ValueError("division by zero")
-                stack.append(a / b)
-            case TEof():
-                break
+        if isinstance(tok, TNum):
+            stack.append(tok.value)
+
+        elif isinstance(tok, TPlus):
+            b, a = pop(), pop()
+            stack.append(a + b)
+
+        elif isinstance(tok, TMinus):
+            b, a = pop(), pop()
+            stack.append(a - b)
+
+        elif isinstance(tok, TStar):
+            b, a = pop(), pop()
+            stack.append(a * b)
+
+        elif isinstance(tok, TSlash):
+            b, a = pop(), pop()
+            if b == 0.0:
+                raise ValueError("division by zero")
+            stack.append(a / b)
+
+        elif isinstance(tok, TEof):
+            break
+
 
     if len(stack) == 0:
         raise ValueError("empty expression")
