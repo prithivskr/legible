@@ -1,3 +1,23 @@
 (test
   (name test_parser)
   (libraries legible alcotest))
+
+(test
+  (name test_symbol_table)
+  (libraries legible alcotest))
+
+(test
+  (name test_dag)
+  (libraries legible alcotest))
+
+(test
+  (name test_tangle)
+  (libraries legible alcotest unix))
+
+(test
+  (name test_annotations)
+  (libraries legible alcotest))
+
+(test
+  (name test_build)
+  (libraries legible alcotest))
