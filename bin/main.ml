@@ -120,35 +120,81 @@ let run_with_errors f =
       exit 1
 
 let run_tangle output force dry_run warn_only platform no_cache color file =
-  ignore output;
-  ignore force;
-  ignore dry_run;
-  ignore warn_only;
-  ignore platform;
-  ignore no_cache;
-  ignore color;
-  print_endline ("running tangle for " ^ file)
+  ignore force ;
+  ignore no_cache ;
+  ignore color ;
+  run_with_errors (fun () ->
+      let pipeline = build_pipeline file in
+      let ok = check_annotations ~warn_only ~platform pipeline in
+      if not ok then exit 1 ;
+      let outputs = Tangle.expand (Symbol_table.chunks pipeline.symbols) in
+      let outputs =
+        match (output, outputs) with
+        | Some path, [out] ->
+            [{Tangle.path; content= out.content}]
+        | _ ->
+            outputs
+      in
+      if dry_run then
+        List.iter
+          (fun (o : Tangle.output) ->
+            print_endline
+              (Printf.sprintf "would write %s (%d bytes)" o.path
+                 (String.length o.content) ) )
+          outputs
+      else
+        match (output, outputs) with
+        | Some base, _ :: _ :: _ ->
+            Tangle.write_outputs ~base_dir:base outputs
+        | _ ->
+            Tangle.write_outputs outputs )
 
 let run_build output force dry_run warn_only platform no_cache color file =
-  ignore output;
-  ignore force;
-  ignore dry_run;
-  ignore warn_only;
-  ignore platform;
-  ignore no_cache;
-  ignore color;
-  print_endline ("running build for " ^ file)
+  ignore force ;
+  ignore no_cache ;
+  ignore color ;
+  run_with_errors (fun () ->
+      let pipeline = build_pipeline file in
+      let ok = check_annotations ~warn_only ~platform pipeline in
+      if not ok then exit 1 ;
+      let outputs = Tangle.expand (Symbol_table.chunks pipeline.symbols) in
+      let outputs =
+        match (output, outputs) with
+        | Some path, [out] ->
+            [{Tangle.path; content= out.content}]
+        | _ ->
+            outputs
+      in
+      ( if dry_run then
+          List.iter
+            (fun (o : Tangle.output) ->
+              print_endline
+                (Printf.sprintf "would write %s (%d bytes)" o.path
+                   (String.length o.content) ) )
+            outputs
+        else
+          match (output, outputs) with
+          | Some base, _ :: _ :: _ ->
+              Tangle.write_outputs ~base_dir:base outputs
+          | _ ->
+              Tangle.write_outputs outputs ) ;
+      let build_result = Build.run ~dry_run pipeline.symbols in
+      Build.print_result build_result ;
+      if Build.has_failures build_result then exit 1 )
 
-let run_weave output force dry_run warn_only platform offline no_cache color file =
-  ignore output;
-  ignore force;
-  ignore dry_run;
-  ignore warn_only;
-  ignore platform;
-  ignore offline;
-  ignore no_cache;
-  ignore color;
-  print_endline ("running weave for " ^ file)
+let run_weave output force dry_run warn_only platform offline no_cache color
+    file =
+  ignore output ;
+  ignore force ;
+  ignore dry_run ;
+  ignore warn_only ;
+  ignore platform ;
+  ignore offline ;
+  ignore no_cache ;
+  ignore color ;
+  ignore file ;
+  prerr_endline "weave is not implemented yet" ;
+  exit 1
 
 let run_check warn_only platform color file =
   ignore color ;
@@ -219,27 +265,13 @@ let color_flag =
 
 let tangle_term =
   Term.(
-    const run_tangle
-    $ output_arg
-    $ force_flag
-    $ dry_run_flag
-    $ warn_only_flag
-    $ platform_opt
-    $ no_cache_flag
-    $ color_flag
-    $ file_arg)
+    const run_tangle $ output_arg $ force_flag $ dry_run_flag $ warn_only_flag
+    $ platform_opt $ no_cache_flag $ color_flag $ file_arg )
 
 let build_term =
   Term.(
-    const run_build
-    $ output_arg
-    $ force_flag
-    $ dry_run_flag
-    $ warn_only_flag
-    $ platform_opt
-    $ no_cache_flag
-    $ color_flag
-    $ file_arg)
+    const run_build $ output_arg $ force_flag $ dry_run_flag $ warn_only_flag
+    $ platform_opt $ no_cache_flag $ color_flag $ file_arg )
 
 let weave_term =
   Term.(
@@ -253,8 +285,7 @@ let graph_term = Term.(const run_graph $ color_flag $ file_arg)
 
 let clean_term = Term.(const run_clean $ dry_run_flag $ color_flag $ file_arg)
 
-let tangle_info =
-  Cmd.info "tangle" ~doc:"Expand chunks and write output files."
+let tangle_info = Cmd.info "tangle" ~doc:"Expand chunks and write output files."
 
 let build_info =
   Cmd.info "build" ~doc:"Tangle, then execute build and run commands."
