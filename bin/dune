@@ -2,3 +2,8 @@
  (public_name legible)
  (name main)
  (libraries legible cmdliner))
+
+(executable
+ (public_name test_lexer)
+ (name test_lexer)
+ (libraries legible))
