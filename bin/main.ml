@@ -1,4 +1,54 @@
 open Cmdliner
+open Legible
+
+type pipeline = {symbols: Symbol_table.build_result; dag: Dag.analysis}
+
+let slurp path =
+  let ic = open_in_bin path in
+  let src = In_channel.input_all ic in
+  close_in ic ; src
+
+let pos_to_string (p : Lexer.position) = Printf.sprintf "%d:%d" p.line p.column
+
+let diagnostic_to_string (d : Annotations.diagnostic) =
+  let sev = match d.severity with Error -> "error" | Warning -> "warning" in
+  let where =
+    match (d.chunk, d.loc) with
+    | Some name, Some loc ->
+        Printf.sprintf "[%s @ %s]" name (pos_to_string loc)
+    | Some name, None ->
+        Printf.sprintf "[%s]" name
+    | None, Some loc ->
+        Printf.sprintf "[@ %s]" (pos_to_string loc)
+    | None, None ->
+        ""
+  in
+  if where = "" then Printf.sprintf "%s: %s" sev d.message
+  else Printf.sprintf "%s %s: %s" sev where d.message
+
+let print_report (r : Annotations.report) =
+  List.iter (fun d -> prerr_endline (diagnostic_to_string d)) r.warnings ;
+  List.iter (fun d -> prerr_endline (diagnostic_to_string d)) r.errors
+
+let parse_host_platform override =
+  match override with
+  | Some s -> (
+    match String.lowercase_ascii s with
+    | "posix" ->
+        Annotations.Posix
+    | "windows" ->
+        Annotations.Windows
+    | other ->
+        invalid_arg ("unsupported --platform value: " ^ other) )
+  | None ->
+      if Sys.win32 then Annotations.Windows else Annotations.Posix
+
+let build_pipeline file =
+  let src = slurp file in
+  let doc = Parser.parse_string src in
+  let symbols = Symbol_table.build doc in
+  let dag = Dag.analyze (Symbol_table.chunks symbols) in
+  {symbols; dag}
 
 let run_tangle output force dry_run warn_only platform no_cache color file =
   ignore output;
@@ -52,35 +102,35 @@ let file_arg =
 
 let output_arg =
   let doc = "Output path or directory." in
-  Arg.(value & opt (some string) None & info [ "o" ] ~docv:"PATH" ~doc)
+  Arg.(value & opt (some string) None & info ["o"] ~docv:"PATH" ~doc)
 
 let force_flag =
   let doc = "Ignore cache and rebuild everything." in
-  Arg.(value & flag & info [ "force" ] ~doc)
+  Arg.(value & flag & info ["force"] ~doc)
 
 let dry_run_flag =
   let doc = "Show what would be done without writing or running commands." in
-  Arg.(value & flag & info [ "dry-run" ] ~doc)
+  Arg.(value & flag & info ["dry-run"] ~doc)
 
 let warn_only_flag =
   let doc = "Treat annotation violations as warnings." in
-  Arg.(value & flag & info [ "warn-only" ] ~doc)
+  Arg.(value & flag & info ["warn-only"] ~doc)
 
 let platform_opt =
   let doc = "Override host platform annotation checks." in
-  Arg.(value & opt (some string) None & info [ "platform" ] ~docv:"PLATFORM" ~doc)
+  Arg.(value & opt (some string) None & info ["platform"] ~docv:"PLATFORM" ~doc)
 
 let offline_flag =
   let doc = "Inline assets for offline weave output." in
-  Arg.(value & flag & info [ "offline" ] ~doc)
+  Arg.(value & flag & info ["offline"] ~doc)
 
 let no_cache_flag =
   let doc = "Do not read or write .lit-cache." in
-  Arg.(value & flag & info [ "no-cache" ] ~doc)
+  Arg.(value & flag & info ["no-cache"] ~doc)
 
 let color_flag =
   let doc = "Force ANSI color output." in
-  Arg.(value & flag & info [ "color" ] ~doc)
+  Arg.(value & flag & info ["color"] ~doc)
 
 let tangle_term =
   Term.(
@@ -150,17 +200,17 @@ let clean_cmd = Cmd.v clean_info clean_term
 
 let default_info = Cmd.info "legible" ~doc:"Literate programming toolchain."
 
-let known_commands = [ "tangle"; "build"; "weave"; "check"; "status"; "graph"; "clean" ]
+let known_commands =
+  ["tangle"; "build"; "weave"; "check"; "status"; "graph"; "clean"]
 
 let is_help_flag arg =
   arg = "-h" || arg = "--help"
 
 let rec first_non_option = function
-  | [] -> None
+  | [] ->
+      None
   | "--" :: rest -> (
-      match rest with
-      | x :: _ -> Some x
-      | [] -> None)
+    match rest with x :: _ -> Some x | [] -> None )
   | x :: rest ->
       if String.length x > 0 && Char.equal x.[0] '-' then first_non_option rest
       else Some x
@@ -173,11 +223,15 @@ let argv_default argv =
     if List.exists is_help_flag args then argv
     else
       match first_non_option args with
-      | Some x when List.mem x known_commands -> argv
-      | Some _ -> Array.of_list (prog :: "tangle" :: args)
-      | None -> argv
+      | Some x when List.mem x known_commands ->
+          argv
+      | Some _ ->
+          Array.of_list (prog :: "tangle" :: args)
+      | None ->
+          argv
 
 let main_cmd =
-  Cmd.group default_info [ tangle_cmd; build_cmd; weave_cmd; check_cmd; graph_cmd; clean_cmd ]
+  Cmd.group default_info
+    [tangle_cmd; build_cmd; weave_cmd; check_cmd; graph_cmd; clean_cmd]
 
 let () = exit (Cmd.eval ~argv:(argv_default Sys.argv) main_cmd)
