@@ -25,3 +25,7 @@
 (test
   (name test_cache)
   (libraries legible alcotest))
+
+(test
+  (name test_weave)
+  (libraries legible alcotest))

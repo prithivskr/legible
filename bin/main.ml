@@ -238,16 +238,23 @@ let run_build output force dry_run warn_only platform no_cache file =
       if Build.has_failures build_result then exit 1 )
 
 let run_weave output force dry_run warn_only platform offline no_cache file =
-  ignore output ;
   ignore force ;
-  ignore dry_run ;
   ignore warn_only ;
   ignore platform ;
   ignore offline ;
   ignore no_cache ;
-  ignore file ;
-  prerr_endline "weave is not implemented yet" ;
-  exit 1
+  run_with_errors (fun () ->
+      let src = slurp file in
+      let doc = Parser.parse_string src in
+      let html = Weave.render_document doc in
+      let out_path =
+        match output with Some p -> p | None -> Weave.default_output_path file
+      in
+      if dry_run then
+        print_endline
+          (Printf.sprintf "would write %s (%d bytes)" out_path
+             (String.length html) )
+      else Weave.write_html out_path html )
 
 let run_check warn_only platform file =
   run_with_errors (fun () ->
