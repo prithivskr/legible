@@ -1,14 +1,21 @@
 module String_map = Map.Make (String)
 
 type t =
-  {lit_hash: string; chunk_hashes: string String_map.t; out_hashes: string String_map.t; build_success: bool String_map.t}
+  { lit_hash: string
+  ; chunk_hashes: string String_map.t
+  ; out_hashes: string String_map.t
+  ; build_success: bool String_map.t }
 
 let version = 1
 
 let empty lit_hash =
-  {lit_hash; chunk_hashes= String_map.empty; out_hashes= String_map.empty; build_success= String_map.empty}
+  { lit_hash
+  ; chunk_hashes= String_map.empty
+  ; out_hashes= String_map.empty
+  ; build_success= String_map.empty }
 
-let cache_path lit_file = Filename.concat (Filename.dirname lit_file) ".lit-cache"
+let cache_path lit_file =
+  Filename.concat (Filename.dirname lit_file) ".lit-cache"
 
 let hash_string s = Digest.to_hex (Digest.string s)
 
@@ -39,11 +46,11 @@ let parse_line (acc : t) line =
   | ["OUT_HASH"; path; h] ->
       {acc with out_hashes= String_map.add path h acc.out_hashes}
   | ["BUILD_OK"; path; b] -> (
-      match bool_of_string_opt b with
-      | Some ok ->
-          {acc with build_success= String_map.add path ok acc.build_success}
-      | None ->
-          acc )
+    match bool_of_string_opt b with
+    | Some ok ->
+        {acc with build_success= String_map.add path ok acc.build_success}
+    | None ->
+        acc )
   | _ ->
       acc
 
@@ -55,12 +62,10 @@ let load path =
       match input_line ic with
       | line ->
           if String.trim line = "" then loop init
-          else if String.starts_with ~prefix:"VERSION " line then
-            loop init
+          else if String.starts_with ~prefix:"VERSION " line then loop init
           else loop (parse_line init line)
       | exception End_of_file ->
-          close_in ic ;
-          Some init
+          close_in ic ; Some init
     in
     loop (empty "")
 
@@ -88,15 +93,15 @@ let is_root_stale ~cache (out : Tangle.output) =
   | Some old_chunk_hash when old_chunk_hash <> expanded_hash ->
       true
   | Some _ -> (
-      match (find_opt cache.out_hashes name, hash_file name) with
-      | Some prev_disk, Some cur_disk when prev_disk = cur_disk -> (
-          match find_opt cache.build_success name with
-          | Some false ->
-              true
-          | _ ->
-              false )
+    match (find_opt cache.out_hashes name, hash_file name) with
+    | Some prev_disk, Some cur_disk when prev_disk = cur_disk -> (
+      match find_opt cache.build_success name with
+      | Some false ->
+          true
       | _ ->
-          true )
+          false )
+    | _ ->
+        true )
 
 let stale_roots ~force ~lit_hash ~outputs cached =
   if force then List.map (fun (o : Tangle.output) -> o.path) outputs
@@ -112,9 +117,7 @@ let stale_roots ~force ~lit_hash ~outputs cached =
         |> List.map (fun (o : Tangle.output) -> o.path)
 
 let with_outputs ~lit_hash outputs cached =
-  let base =
-    match cached with Some c -> c | None -> empty lit_hash
-  in
+  let base = match cached with Some c -> c | None -> empty lit_hash in
   let c = {base with lit_hash} in
   List.fold_left
     (fun acc (o : Tangle.output) ->
@@ -128,7 +131,7 @@ let with_outputs ~lit_hash outputs cached =
         | None ->
             acc.out_hashes
       in
-      {acc with chunk_hashes; out_hashes})
+      {acc with chunk_hashes; out_hashes} )
     c outputs
 
 let mark_build (c : t) ~root ~ok =
