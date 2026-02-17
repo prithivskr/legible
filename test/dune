@@ -21,3 +21,7 @@
 (test
   (name test_build)
   (libraries legible alcotest))
+
+(test
+  (name test_cache)
+  (libraries legible alcotest))

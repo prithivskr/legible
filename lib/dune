@@ -1,5 +1,5 @@
 (library
  (name legible)
  (public_name legible)
- (modules lexer ast parser symbol_table dag annotations tangle build)
+ (modules lexer ast parser symbol_table dag annotations tangle build cache)
  (libraries unix))
