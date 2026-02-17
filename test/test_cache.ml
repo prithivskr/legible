@@ -2,7 +2,9 @@ open Legible
 open Alcotest
 
 let test_cache_roundtrip () =
-  let path = Filename.concat (Filename.get_temp_dir_name ()) "legible-cache-test" in
+  let path =
+    Filename.concat (Filename.get_temp_dir_name ()) "legible-cache-test"
+  in
   let c0 = Cache.empty "abc" in
   let c0 = Cache.mark_build c0 ~root:"out.txt" ~ok:true in
   let c0 =
@@ -32,7 +34,9 @@ let test_stale_roots_detection () =
   output_string oc out.content ;
   close_out oc ;
   let c = Cache.with_outputs ~lit_hash [out] None in
-  let stale2 = Cache.stale_roots ~force:false ~lit_hash ~outputs:[out] (Some c) in
+  let stale2 =
+    Cache.stale_roots ~force:false ~lit_hash ~outputs:[out] (Some c)
+  in
   Sys.remove out.path ;
   check (list string) "up-to-date => no stale" [] stale2
 
