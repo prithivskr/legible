@@ -1,6 +1,5 @@
 open Cmdliner
 open Legible
-
 module String_set = Set.Make (String)
 
 type pipeline =
@@ -87,9 +86,7 @@ let filter_outputs_by_roots roots outputs =
   let names =
     List.fold_left (fun s n -> String_set.add n s) String_set.empty roots
   in
-  List.filter
-    (fun (o : Tangle.output) -> String_set.mem o.path names)
-    outputs
+  List.filter (fun (o : Tangle.output) -> String_set.mem o.path names) outputs
 
 let check_annotations ~warn_only ~platform pipeline =
   let static_r = Annotations.check_static pipeline.symbols in
@@ -131,8 +128,7 @@ let run_with_errors f =
       prerr_endline ("error: build deps cycle: " ^ String.concat " -> " path) ;
       exit 1
 
-let run_tangle output force dry_run warn_only platform no_cache color file =
-  ignore color ;
+let run_tangle output force dry_run warn_only platform no_cache file =
   run_with_errors (fun () ->
       let pipeline = build_pipeline file in
       let ok = check_annotations ~warn_only ~platform pipeline in
@@ -168,20 +164,20 @@ let run_tangle output force dry_run warn_only platform no_cache color file =
               if not (List.mem name stale_roots) then
                 print_endline ("cache up-to-date: " ^ name) )
             (List.map (fun (o : Tangle.output) -> o.path) outputs_all) )
-      else (
+      else
         match (output, outputs) with
         | Some base, _ :: _ :: _ ->
             Tangle.write_outputs ~base_dir:base outputs
         | _ ->
             Tangle.write_outputs outputs ;
-        if cache_enabled then
-          let next =
-            Cache.with_outputs ~lit_hash:pipeline.lit_hash outputs_all cached
-          in
-          Cache.save cache_file next ) )
+            if cache_enabled then
+              let next =
+                Cache.with_outputs ~lit_hash:pipeline.lit_hash outputs_all
+                  cached
+              in
+              Cache.save cache_file next )
 
-let run_build output force dry_run warn_only platform no_cache color file =
-  ignore color ;
+let run_build output force dry_run warn_only platform no_cache file =
   run_with_errors (fun () ->
       let pipeline = build_pipeline file in
       let ok = check_annotations ~warn_only ~platform pipeline in
@@ -217,30 +213,31 @@ let run_build output force dry_run warn_only platform no_cache color file =
               Tangle.write_outputs ~base_dir:base outputs
           | _ ->
               Tangle.write_outputs outputs ) ;
-      let build_result = Build.run ~dry_run ~only:stale_roots pipeline.symbols in
+      let build_result =
+        Build.run ~dry_run ~only:stale_roots pipeline.symbols
+      in
       Build.print_result build_result ;
-      if cache_enabled && not dry_run then (
-        let c0 =
-          Cache.with_outputs ~lit_hash:pipeline.lit_hash outputs_all cached
-        in
-        let c1 =
-          Build.String_map.fold
-            (fun root status acc ->
-              let ok =
-                match status with
-                | Build.Succeeded | Build.Cached ->
-                    true
-                | Build.Failed _ | Build.Skipped _ ->
-                    false
-              in
-              Cache.mark_build acc ~root ~ok )
-            build_result.statuses c0
-        in
-        Cache.save cache_file c1 ) ;
+      ( if cache_enabled && not dry_run then
+          let c0 =
+            Cache.with_outputs ~lit_hash:pipeline.lit_hash outputs_all cached
+          in
+          let c1 =
+            Build.String_map.fold
+              (fun root status acc ->
+                let ok =
+                  match status with
+                  | Build.Succeeded | Build.Cached ->
+                      true
+                  | Build.Failed _ | Build.Skipped _ ->
+                      false
+                in
+                Cache.mark_build acc ~root ~ok )
+              build_result.statuses c0
+          in
+          Cache.save cache_file c1 ) ;
       if Build.has_failures build_result then exit 1 )
 
-let run_weave output force dry_run warn_only platform offline no_cache color
-    file =
+let run_weave output force dry_run warn_only platform offline no_cache file =
   ignore output ;
   ignore force ;
   ignore dry_run ;
@@ -248,21 +245,18 @@ let run_weave output force dry_run warn_only platform offline no_cache color
   ignore platform ;
   ignore offline ;
   ignore no_cache ;
-  ignore color ;
   ignore file ;
   prerr_endline "weave is not implemented yet" ;
   exit 1
 
-let run_check warn_only platform color file =
-  ignore color ;
+let run_check warn_only platform file =
   run_with_errors (fun () ->
       let pipeline = build_pipeline file in
       let ok = check_annotations ~warn_only ~platform pipeline in
       if not ok then exit 1 ;
       print_endline "check passed" )
 
-let run_graph color file =
-  ignore color ;
+let run_graph file =
   run_with_errors (fun () ->
       let pipeline = build_pipeline file in
       let g = pipeline.dag.graph.adjacency in
@@ -273,8 +267,7 @@ let run_graph color file =
             deps )
         g )
 
-let run_clean dry_run color file =
-  ignore color ;
+let run_clean dry_run file =
   run_with_errors (fun () ->
       let pipeline = build_pipeline file in
       let outputs = root_output_paths pipeline.symbols in
@@ -316,31 +309,27 @@ let no_cache_flag =
   let doc = "Do not read or write .lit-cache." in
   Arg.(value & flag & info ["no-cache"] ~doc)
 
-let color_flag =
-  let doc = "Force ANSI color output." in
-  Arg.(value & flag & info ["color"] ~doc)
-
 let tangle_term =
   Term.(
     const run_tangle $ output_arg $ force_flag $ dry_run_flag $ warn_only_flag
-    $ platform_opt $ no_cache_flag $ color_flag $ file_arg )
+    $ platform_opt $ no_cache_flag $ file_arg )
 
 let build_term =
   Term.(
     const run_build $ output_arg $ force_flag $ dry_run_flag $ warn_only_flag
-    $ platform_opt $ no_cache_flag $ color_flag $ file_arg )
+    $ platform_opt $ no_cache_flag $ file_arg )
 
 let weave_term =
   Term.(
     const run_weave $ output_arg $ force_flag $ dry_run_flag $ warn_only_flag
-    $ platform_opt $ offline_flag $ no_cache_flag $ color_flag $ file_arg )
+    $ platform_opt $ offline_flag $ no_cache_flag $ file_arg )
 
 let check_term =
-  Term.(const run_check $ warn_only_flag $ platform_opt $ color_flag $ file_arg)
+  Term.(const run_check $ warn_only_flag $ platform_opt $ file_arg)
 
-let graph_term = Term.(const run_graph $ color_flag $ file_arg)
+let graph_term = Term.(const run_graph $ file_arg)
 
-let clean_term = Term.(const run_clean $ dry_run_flag $ color_flag $ file_arg)
+let clean_term = Term.(const run_clean $ dry_run_flag $ file_arg)
 
 let tangle_info = Cmd.info "tangle" ~doc:"Expand chunks and write output files."
 
